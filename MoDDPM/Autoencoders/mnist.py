@@ -46,7 +46,6 @@ class Autoencoder(nn.Module):
     """
     Basic Linear Autoencoder that only uses fully connected layers & ReLU activation functions.
     """
-
     def __init__(self, in_channels, latent_dim=64):
         super(Autoencoder, self).__init__()
         self.encode = nn.Sequential(
@@ -66,11 +65,12 @@ class Autoencoder(nn.Module):
             nn.Dropout(0.1),
             nn.Linear(256, in_channels),
         )
-
     def forward(self, x):
         x = self.encode(x)
         x = self.decode(x)
         return x
+
+
 
 
 def train_step():

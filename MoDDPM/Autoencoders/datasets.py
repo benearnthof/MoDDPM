@@ -4,7 +4,10 @@ from pathlib import Path
 from torch.utils.data import Dataset
 import torchvision.transforms as T
 from PIL import Image
+from typing import List
 
+def exists(v):
+    return v is not None
 
 class ImageDataset(Dataset):
     def __init__(
