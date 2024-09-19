@@ -74,14 +74,14 @@ class ConvAutoencoder(nn.Module):
 
 # lets compare the amount of parameters in each model:
 # TODO make training a callable function in this file from MoDDPM.Autoencoders.mnist import Autoencoder
-conv_model = ConvAutoencoder()
-mnist_model = Autoencoder(28*28)
-naive_model = Autoencoder(3*256*256)
+# conv_model = ConvAutoencoder()
+# mnist_model = Autoencoder(28*28)
+# naive_model = Autoencoder(3*256*256)
 
-n_params_conv = sum(t.numel() for t in conv_model.parameters())
-n_params_mnist = sum(t.numel() for t in mnist_model.parameters())
-n_params_naive = sum(t.numel() for t in naive_model.parameters())
-# That is an insane reduction of trainable parameters, maybe we need more layers for 256x256 images
+# n_params_conv = sum(t.numel() for t in conv_model.parameters())
+# n_params_mnist = sum(t.numel() for t in mnist_model.parameters())
+# n_params_naive = sum(t.numel() for t in naive_model.parameters())
+# # That is an insane reduction of trainable parameters, maybe we need more layers for 256x256 images
 
 def cycle(dl):
     while True:
@@ -90,7 +90,7 @@ def cycle(dl):
 
 import lpips
 lossfunction = nn.MSELoss().to(device)
-lpips_loss_function = lpips.LPIPS(net="vgg").to(device)
+lpips_loss_function = lpips.LPIPS(net="alex").to(device)
 
 def train_step(model, lambda_lpips=0.1):
     optimizer.zero_grad()
@@ -111,7 +111,7 @@ def test_step(model, lambda_lpips=0.1):
         sample = next(test_dl).to(device)
         reconstructions = model(sample)
         pred_mse = lossfunction(reconstructions, sample)
-        pred_lpips = torch.mean(lpips_loss_function(reconstructions, samples))
+        lpips_loss = torch.mean(lpips_loss_function(reconstructions, sample))
         pred_loss = pred_mse + lambda_lpips * lpips_loss
     return pred_loss
 
@@ -125,7 +125,7 @@ def test_step(model, lambda_lpips=0.1):
     # dl = cycle(dl)
 
 train_dl = cycle(DataLoader(train_ds, batch_size=32, shuffle=True))
-test_dl = cycle(DataLoader(test_ds, batch_size=32, shuffle=True))
+test_dl = cycle(DataLoader(test_ds, batch_size=256, shuffle=True))
 val_dl = DataLoader(val_ds, batch_size=8, shuffle=False)
 
 conv_model = ConvAutoencoder()
@@ -141,32 +141,32 @@ for i in (t := trange(10000)):
         pred_loss = test_step(conv_model).detach().cpu().numpy()
         torch.cuda.empty_cache()
     test_losses.append(pred_loss)
-    t.set_description(f"loss: {loss.item():6.2f}  val_loss: {pred_loss:5.2f}")
+    t.set_description(f"loss: {loss.item():6.4f}  val_loss: {pred_loss:5.4f}")
 # results[b] = test_losses
-model.eval()
+conv_model.eval()
 for x in tqdm(val_dl):
     with torch.no_grad():
         val_losses.append(
-            lossfunction(model(x.to(device)), x.to(device)).item()
+            lossfunction(conv_model(x.to(device)), x.to(device)).item()
         )
 
 # TODO: KDE plot of values
 
 
-# from matplotlib import pyplot as plt
-# from matplotlib.collections import LineCollection
+from matplotlib import pyplot as plt
+from matplotlib.collections import LineCollection
 
-# fig, ax1 = plt.subplots(figsize=(12, 6))
-# plt.yscale("log")
-# # ax2 = ax1.twinx()
-# #for bs, test_accs in zip(results.keys(), results.values()):
-# ax1.plot(test_losses) #, label=f"{bs}")
+fig, ax1 = plt.subplots(figsize=(12, 6))
+plt.yscale("log")
+# ax2 = ax1.twinx()
+#for bs, test_accs in zip(results.keys(), results.values()):
+ax1.plot(test_losses) #, label=f"{bs}")
 
-# ax1.set_ylabel("Validation Loss")
-# plt.legend()
-# fig.savefig(
-#     "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ru25jan4/gitroot/MoDDPM/MoDDPM/assets/celeba.png"
-# )
+ax1.set_ylabel("Validation Loss")
+plt.legend()
+fig.savefig(
+    "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ru25jan4/gitroot/MoDDPM/MoDDPM/assets/celeba_lpips.png"
+)
 
 # sampling an image and seeing its reconstruction
 from torchvision.utils import save_image
@@ -175,10 +175,10 @@ from einops import rearrange
 val_images = next(iter(val_dl))
 
 plot_images = rearrange(val_images, "b c h w -> c h (b w)")
-save_image(plot_images, "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ru25jan4/gitroot/MoDDPM/MoDDPM/assets/val_image.png")
+save_image(plot_images, "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ru25jan4/gitroot/MoDDPM/MoDDPM/assets/val_image_lpips.png")
 # pass this through the encoder decoder steps then plot again
 recon_images = conv_model(val_images.to(device))
 
 plot_images = rearrange(recon_images, "b c h w -> c h (b w)")
-save_image(plot_images, "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ru25jan4/gitroot/MoDDPM/MoDDPM/assets/val_recon.png")
+save_image(plot_images, "/dss/dssmcmlfs01/pr74ze/pr74ze-dss-0001/ru25jan4/gitroot/MoDDPM/MoDDPM/assets/val_recon_lpips.png")
 
